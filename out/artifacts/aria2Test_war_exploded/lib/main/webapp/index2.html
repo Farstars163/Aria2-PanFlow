@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Aria2 Download Tool</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.css" />
+    <!-- 引入 Vue 3 生产环境版本 (避免开发版警告) -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"></script>
+    <!-- 引入 Element Plus JS -->
+    <script src="https://cdn.jsdelivr.net/npm/element-plus@2.4.4"></script>
+    <!-- 引入 Element Plus 图标库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue@2.3.1"></script>
+    <style scoped>
+        /* 最外层深色侧边栏 */
+        .dark-sidebar {
+            height: 100vh;
+            width: 150px;
+            background-color: #363636; /* 模仿 Motrix 的深色背景 */
+            display: flex;
+            flex-direction: column; /* 竖向排列 */
+            gap:40px;
+            align-items: center; /* 让内部元素水平居中 */
+            padding: 30px 0 30px 0; /* 上下留出一点呼吸感 */
+            box-sizing: border-box; /* 防止 padding 撑破容器 */
+        }
+        /*第二列*/
+        .light-sidebar{
+            height: 100vh;
+            width: 250px;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            border-right: none !important;
+        }
+        .task-list-header{
+            padding: 30px 20px 10px 25px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #666;
+        }
+        /* 上下两块容器也设置为 flex，方便管理内部图标间距 */
+        .top-section, .bottom-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px; /* 灵魂属性：统一设置内部图标之间的间距 */
+        }
+
+        /* Logo 样式 */
+        .logo {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        /* 图标按钮通用样式 */
+        .icon-btn {
+            color: #999999; /* 默认浅灰色 */
+            font-size: 28px;
+            cursor: pointer;
+            transition: color 0.3s; /* 悬浮时颜色渐变过渡 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 鼠标悬浮 或 处于激活状态时变白 */
+        .icon-btn:hover, .icon-btn.active {
+            color: #ffffff;
+        }
+        .top-right{
+
+        }
+        .menu-container{
+            display: flex;
+            justify-content: flex-end;
+        }
+        /*任务徽章*/
+        .task-status-badge {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 30px;
+            background: #eef2ff;
+            color: #2563eb;
+        }
+        /*进度条*/
+        .task-progress {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-top: 8px;
+        }
+        /*进度条内文本*/
+        .progress-text {
+            font-size: 13px;
+            color: #5b6e8c;
+            min-width: 45px;
+        }
+        /*速度显示*/
+        .task-speed {
+            font-size: 12px;
+            color: #3b82f6;
+            background: #eff6ff;
+            padding: 4px 10px;
+            border-radius: 30px;
+        }
+        .task-status-badge {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 30px;
+            background: #eef2ff;
+            color: #2563eb;
+        }
+        /*空页面展示*/
+        .empty-tasks {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        /*任务卡片*/
+        .task-card:hover {
+            border-color: #dce5ef;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+        }
+        .task-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: #1e293b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .top-left span{
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2d3d;
+            background: #f1f5f9;
+            padding: 6px 14px;
+            border-radius: 40px;
+        }
+        .el-popper.is-customized {
+            /* Set padding to ensure the height is 32px */
+            padding: 6px 12px;
+            background: linear-gradient(90deg, rgb(159, 229, 151), rgb(204, 229, 129));
+        }
+
+        .el-popper.is-customized .el-popper__arrow::before {
+            background: linear-gradient(45deg, #b2e68d, #bce689);
+            right: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+<div class="common-layout" style="height: 100vh;">
+    <el-container>
+        <!--最左边-->
+        <el-aside class="dark-sidebar">
+            <div class="top-section">
+                <div class="logo">F</div>
+            <div class="icon-btn" :class="{active : activeGlobalMenu === 'dashboard'}" @click="switchGlobalMenu('dashboard')" >
+                <el-icon><Operation /></el-icon>
+            </div>
+            </div>
+            <div class="bottom-section">
+            <div class="icon-btn" @click="handleAddTask">
+                <el-icon><Plus /></el-icon>
+            </div>
+            </div>
+        </el-aside>
+        <!--第二列-->
+        <el-aside class="light-sidebar">
+            <div class="task-list-header">
+                <span>任务列表</span>
+            </div>
+            <el-menu :default-active="activeTaskType" @select="handleTaskTypeChange">
+                <el-menu-item index="downloading">
+                    <el-icon><Pointer /></el-icon>
+                    <span>下载中</span>
+                    <span style="margin-left: auto;font-size: 12px;background: #e2e8f0;padding: 0 6px;border-radius: 16px;">{{downloadingCount}}</span>
+                </el-menu-item>
+
+                <el-menu-item index="waiting">
+                        <el-icon class="is-loading"><Loading /></el-icon>
+                    <span>等待中</span>
+                    <span style="margin-left: auto;font-size: 12px;background: #e2e8f0;padding: 0 6px;border-radius: 16px;">{{waitingCount}}</span>
+                </el-menu-item>
+
+                <el-menu-item index="stopped">
+                    <el-icon ><Promotion /></el-icon>
+                    <span>已停止</span>
+                    <span style="margin-left: auto;font-size: 12px;background: #e2e8f0;padding: 0 6px;border-radius: 16px;">{{stoppedCount}}</span>
+                </el-menu-item>
+            </el-menu>
+        </el-aside>
+        <el-container>
+            <el-header>
+                <div class="top-left">
+                    <span>{{ currentHeaderTitle }}</span>
+                </div>
+
+                <div class="top-right">
+                    <el-menu mode="horizontal" :ellipsis="false" class="menu-container">
+                        <el-menu-item index="delete_all" @click="clearCompletedTasks">
+                            <el-tooltip content="删除所有任务" effect="customized">
+                                <el-icon><Delete /></el-icon>
+                            </el-tooltip>
+
+                        </el-menu-item>
+
+                        <el-menu-item index="refresh" @click="refreshTasks">
+                            <el-tooltip
+                                    class="box-item"
+                                    effect="customized"
+                                    content="刷新所有任务"
+                                    placement="bottom"
+                            >
+                                <el-icon><Refresh /></el-icon>
+                            </el-tooltip>
+
+                        </el-menu-item>
+
+                        <el-menu-item index="start_all" @click="startAllTasks">
+                            <el-tooltip
+                                    class="box-item"
+                                    effect="customized"
+                                    content="下载所有任务"
+                                    placement="bottom"
+                            >
+                                <el-icon><Download /></el-icon>
+                            </el-tooltip>
+                        </el-menu-item>
+
+                        <el-menu-item index="stop_all" @click="stopAllTasks">
+                            <el-tooltip
+                                    class="box-item"
+                                    effect="customized"
+                                    content="暂停所有任务"
+                                    placement="bottom"
+                            >
+                                    <el-icon><video-pause /></el-icon>
+                            </el-tooltip>
+                        </el-menu-item>
+                    </el-menu>
+                </div>
+            </el-header>
+            <!--右侧下载栏-->
+            <el-main>
+                <div v-if="filteredTasks.length === 0" class="empty-tasks">
+                    <el-icon style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"><Document /></el-icon>
+                    <div>暂无任务，点击左侧 + 号添加下载链接</div>
+                </div>
+                <div v-for="task in filteredTasks" :key="task.id" class="task-card">
+                    <div class="task-title">
+                        <el-icon :color="getTaskIconColor(task.status)"><CopyDocument /></el-icon>
+                        <span style="flex:1;overflow: hidden;text-overflow: ellipsis;white-space: nowrap;">{{task.name}}</span>
+                        <span class="task-status-badge">{{getStatusText(task.status)}}</span>
+                    </div>
+
+                    <div class="task-progress">
+                        <el-progress :text-inside="true" :stroke-width="16" :percentage="task.progress"style="flex:1;" :color="progressColor" />
+                        <span class="progress-text">{{task.progress}}%</span>
+                        <span v-if="task.status === 'downloading'" class="task-speed">{{task.speed || '0 KB/s'}}</span>
+                    </div>
+
+                    <div style="display:flex;justify-content: flex-end;gap:16px;margin-top: 12px;">
+                        <el-button size="small" text type="primary" @click="startTask(task.id)" :disabled="task.status === 'downloading' || task.status === 'waiting'">
+                            <el-icon><Download /></el-icon> 下载
+                        </el-button>
+                        <el-button size="small" text type="danger" @click="pauseTask(task.id)" :disabled="task.status !== 'downloading' && task.status !== 'waiting'">
+                            <el-icon><VideoPause /></el-icon> 暂停
+                        </el-button>
+                        <el-button size="small" text  @click="removeTask(task.id)">
+                            <el-icon><Delete /></el-icon> 移除
+                        </el-button>
+                    </div>
+                </div>
+
+            </el-main>
+        </el-container>
+    </el-container>
+</div>
+</div>
+<script>
+
+    const {createApp,computed,ref,onBeforeUnmount,onMounted} = Vue;
+
+    const generateId = () => Date.now() + '-' + Math.random().toString(36).substring(2,19);
+
+    const getInitialTasks = () =>[
+        { id: Gid, name: 'ubuntu-22.04-desktop-amd64.iso', status: 'downloading', progress: 34, speed: '2.4 MB/s', url: 'https://example.com/ubuntu.iso', _interval: null },
+
+    ];
+
+    const app = createApp({
+        setup(){
+            const tasks = ref(getInitialTasks());
+            const activeTaskType = ref('downloading');
+            const activeGlobalMenu = ref('dashboard');
+
+            const downloadingCount = computed(() => {
+                  return tasks.value.filter(t => t.status === 'downloading').length;
+            });
+
+            const waitingCount = computed(() => {
+                return tasks.value.filter(t => t.status === 'waiting').length;
+            });
+            const stoppedCount = computed(() => {
+                return tasks.value.filter(t => t.status === 'stopped').length;
+            });
+
+            const currentHeaderTitle = computed(()=>{
+                const map = {downloading:' 下载中',waiting:'等待中', stopped: '已停止' };
+                return map[activeTaskType.value];
+            });
+            const filteredTasks = computed(()=> {
+                return tasks.value.filter(t => t.status === activeTaskType.value);
+            });
+            const getTaskIconColor = (status) =>{
+                if(status === 'downloading') return '#3b82f6';
+                if(status === 'waiting') return '#eab308';
+                return '#94a3b8';
+            };
+            const getStatusText = (status) =>{
+                const map = {downloading: '下载中', waiting: '等待中', stopped: '已停止'};
+                return map[status] || '未知';
+            };
+
+            const clearTaskInterval = (task) => {
+                if(task._interval){
+                    clearInterval(task._interval);
+                    task._interval = null;
+                }
+            };
+            const startProgressSimulation = (task) =>{
+                if(task._interval) clearInterval(task);
+                if(task.status !== 'downloading' || task.progress >= 100) return;
+
+                const interval = setInterval(() => {
+                    const currentTask = tasks.value.find(t => t.id === task.id);
+                    if(!currentTask || currentTask.status !== 'downloading'){
+                        clearInterval(interval);
+                        return;
+                    }
+                    if(currentTask.progress < 100){
+                        currentTask.progress = Math.min(currentTask.progress + Math.floor(Math.random() * 7 ) + 2,100);
+                        if(currentTask.progress >= 100){
+                            currentTask.progress = 100;
+                            currentTask.status = 'stopped';
+                            currentTask.speed = '0 KB/s';
+                            clearInterval(interval);
+                            currentTask._interval = null;
+                            ElementPlus.ElMessage.success(`任务 ${currentTask.name} 下载完成！`);
+                        }
+                    }else{
+                        clearInterval(interval);
+                    }
+                },2800);
+                task._interval = interval;
+            };
+
+            const startTask = (taskId) => {
+                const task = tasks.value.find(t => t.id === taskId);
+                if(task && (task.status === 'stopped' || task.status === 'waiting')){
+                    task.status = 'downloading';
+                    if(task.progress >= 100) {
+                        ElementPlus.ElMessage.info('任务已经下载完成');
+                        startProgressSimulation(task);
+                        return;
+                    }
+                    axios({
+                        method:"post",
+                        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                        body: "url=" + encodeURIComponent(url)
+                    }).then((resp) => {
+                        if(resp.data.code === 200){
+                            task.speed = (Math.random() * 3 + 1).toFixed(1) + ' MB/s';
+                            startProgressSimulation(task);
+                            ElementPlus.ElMessage.info(`开始下载: ${task.name}`);
+                        }
+                        else{
+                            ElementPlus.ElMessage.info('任务提交下载失败');
+                        }
+                    })
+                }else if(task.status === 'downloading'){
+                    ElementPlus.ElMessage.info('任务已经在下载中');
+                }
+            };
+            const pauseTask = (taskId) => {
+                const task = tasks.value.find(t => t.id === taskId);
+                if(task && (task.status === 'downloading' || task.status === 'waiting')) {
+                clearTaskInterval(task);
+                task.status = 'stopped';
+                task.speed = '0 KB/s';
+                ElementPlus.ElMessage.info(`已暂停: ${task.name}`);
+                }else{
+                    ElementPlus.ElMessage.warning('只有下载中或等待中的任务可以暂停');
+                }
+                };
+
+            const removeTask = (taskId) => {
+                const task = tasks.value.find(t => t.id === taskId);
+                if(task){
+                    clearTaskInterval(task);
+                    tasks.value = tasks.value.filter(t => t.id !== taskId);
+                    ElementPlus.ElMessage.success('任务已移除');
+                }
+            };
+            const startAllTasks = () => {
+                const targetTasks = tasks.value.filter(t => t.status === 'waiting' || t.status === 'stopped');
+                if(targetTasks.length === 0){
+                    ElementPlus.ElMessage.info('没有可开始的任务');
+                    return;
+                }
+                targetTasks.forEach(task => {
+                    task.status = 'downloading';
+                    if(task.progress >= 100) task.progress = 95;
+                    task.speed = (Math.random() * 4 + 0.8).toFixed(1) + ' MB/s';
+                    startProgressSimulation(task);
+                });
+                ElementPlus.ElMessage.success(`已开始 ${targetTasks.length} 个任务`);
+
+            };
+
+            const stopAllTasks = () => {
+                const activeTasks = tasks.value.filter(t => t.status === 'downloading');
+                activeTasks.forEach(task => {
+                    task.status = 'stopped';
+                    task.speed = '0 KB/s';
+                });
+                if(activeTasks.length){
+                    ElementPlus.ElMessage.info(`已暂停 ${activeTasks.length} 个任务`);
+                }
+                else{
+                    ElementPlus.ElMessage.info('没有运行中的任务');
+                }
+            };
+
+            const clearCompletedTasks = () => {
+                const completedTasks = tasks.value.filter(t => t.status === 'stopped' && t.progress >= 100);
+                if(completedTasks.length === 0){
+                    ElementPlus.ElMessage.info('没有已完成的任务可清除');
+                    return;
+                }
+                completedTasks.forEach(t => clearTaskInterval(t));
+                tasks.value = tasks.value.filter(t => !(t.status === 'stopped' && t.progress >= 100));
+                ElementPlus.ElMessage.success(`已清除 ${completedTasks.length} 个已完成任务`);
+            };
+
+            const refreshTasks = () => {
+                ElementPlus.ElMessage.info('同步任务状态中');
+                tasks.value.forEach(task => {
+                    if (task.status === 'downloading' && task.progress < 100 && !task._interval) {
+                        startProgressSimulation(task);
+                    }
+                });
+            };
+            const getApiUrl = (servletName) => {
+            return `${servletName}`;
+            };
+
+            const progressColor = (percentage) =>{
+                if (percentage >= 80) return '#52c41a';
+                if (percentage >= 40) return '#409eff';
+                return '#faad14';
+            };
+            const switchGlobalMenu = (menu) =>{
+                activeGlobalMenu.value = menu;
+            };
+            const handleAddTask = async() => {
+                try{
+                    const{value : url} = ElementPlus.ElMessageBox.prompt('请输入下载链接(URL)','添加新任务',{
+                    confirmButtonText: '添加',
+                    cancelButtonText: '取消',
+                    inputPattern:
+                    /^https?:\/\/[^\s]+/,
+                    inputErrorMessage: '请输入有效的 HTTP/HTTPS 链接',
+                });
+
+                    const response = await axios({
+                    method : "post",
+                        url:getApiUrl("/api/download"),
+                    params:{url:url},
+                        paramsSerializer : params => {
+                        return Object.keys(params).map(key => `${encodeURIComponent(key)}= ${encodeURIComponent(params[key])}`
+                        ).join('&');
+                        }
+                    });
+                    if(response.data.code === 200){
+                        ElementPlus.ElMessage.info('任务添加成功');
+                        refreshTasks();
+                    }else{
+                        ElementPlus.ElMessage.info(response.data.message);
+
+                    }
+                }catch (error) {
+                    if(error !== '取消'){
+                        ElementPlus.ElMessage.info('任务添加失败' + e.message);
+
+                    }
+                }
+                };
+
+            onMounted(() => {
+                tasks.value.forEach(task => {
+                    if(task.status === 'downloading' && task.progress < 100){
+                        startProgressSimulation(task);
+                    }
+                });
+            });
+
+            onBeforeUnmount(() => {
+                tasks.value.forEach(task => {
+                    if (task._interval) {
+                        clearInterval(task._interval);
+                    }
+                });
+            });
+
+            return {
+                tasks,
+                activeTaskType,
+                activeGlobalMenu,
+                currentHeaderTitle,
+                filteredTasks,
+                downloadingCount,
+                waitingCount,
+                stoppedCount,
+                switchGlobalMenu,
+                getStatusText,
+                getTaskIconColor,
+                progressColor,
+                handleAddTask,
+                handleTaskTypeChange,
+                startTask,
+                pauseTask,
+                removeTask,
+                startAllTasks,
+                stopAllTasks,
+                clearCompletedTasks,
+                refreshTasks,
+
+            };
+        }
+
+    })
+    for(const [key,component] of Object.entries(ElementPlusIconsVue)){
+        app.component(key,component);
+    }
+    app.use(ElementPlus);
+    app.mount("#app");
+</script>
+</body>
+</html>
