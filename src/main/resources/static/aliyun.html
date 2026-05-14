@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>AliyunDrive x Aria2 (Aligo接管)</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <script src="https://unpkg.com/element-plus"></script>
+</head>
+<body>
+<div id="app" style="padding: 20px;">
+    <el-card>
+        <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>阿里云盘目录</span>
+                <el-tag type="success">后端 Aligo 已接管授权</el-tag>
+            </div>
+        </template>
+
+        <el-tree :props="treeProps" :load="loadNode" lazy show-checkbox ref="treeRef" node-key="file_id">
+            <template #default="{ node, data }">
+                <span>
+                    <i :class="data.type === 'folder' ? 'el-icon-folder' : 'el-icon-document'"></i>
+                    {{ node.label }}
+                </span>
+            </template>
+        </el-tree>
+
+        <div style="margin-top: 20px;">
+            <el-button type="success" @click="sendToAria2">推送勾选文件到 Aria2</el-button>
+        </div>
+    </el-card>
+</div>
+
+<script>
+    const { createApp, ref } = Vue;
+
+    createApp({
+        setup() {
+            const treeRef = ref(null);
+            const treeProps = { label: 'name', children: 'zones', isLeaf: (data) => data.type === 'file' };
+
+            const loadNode = async (node, resolve) => {
+                const dir = node.level === 0 ? 'root' : node.data.file_id;
+                try {
+                    // 直接请求 Python 的 5000 端口
+                    const res = await fetch(`http://127.0.0.1:5000/api/aliyun?action=list&dir=${encodeURIComponent(dir)}`);
+                    const json = await res.json();
+                    if (json && json.items) {
+                        resolve(json.items);
+                    } else {
+                        resolve([]);
+                    }
+                } catch (e) {
+                    ElementPlus.ElMessage.error("连接 Python 服务失败，请确保 aligo 正在运行");
+                    resolve([]);
+                }
+            };
+
+            const sendToAria2 = async () => {
+                const checkedNodes = treeRef.value.getCheckedNodes();
+                const files = checkedNodes.filter(node => node.type === 'file');
+                if (files.length === 0) return ElementPlus.ElMessage.error("未勾选文件");
+
+                const selectedFiles = files.map(f =>({
+                    file_id: f.file_id,
+                    filename: f.name,
+                }));
+
+                sessionStorage.setItem('pendingDownloads', JSON.stringify(selectedFiles));
+                // 打个标记，告诉 index.html 这是从阿里云发来的任务
+                sessionStorage.setItem('aliyun_ready', 'true');
+                window.location.href ="./index.html";
+            };
+
+            return { treeRef, treeProps, loadNode, sendToAria2 };
+        }
+    }).use(ElementPlus).mount('#app');
+</script>
+</body>
+</html>
