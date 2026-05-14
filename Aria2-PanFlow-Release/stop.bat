@@ -2,34 +2,34 @@
 cd /d "%~dp0"
 
 echo ========================================
-echo   停止运行 Aria2-PanFlow 服务
+echo   ֹͣ���� Aria2-PanFlow ����
 echo ========================================
 echo.
 
-echo 正在强制停止所有相关进程...
+echo ����ǿ��ֹͣ������ؽ���...
 
-:: 1. 停止 Aria2
-echo [停止] Aria2...
+:: 1. ֹͣ Aria2
+echo [ֹͣ] Aria2...
 taskkill /F /IM aria2c.exe /T 2>nul
-if errorlevel 1 (echo   - 未运行) else (echo   - 已停止)
+if errorlevel 1 (echo   - δ����) else (echo   - ��ֹͣ)
 
-:: 2. 停止 Python 服务
-echo [停止] 阿里云盘服务...
+:: 2. ֹͣ Python ����
+echo [ֹͣ] �������̷���...
 taskkill /F /IM aliyun_service.exe /T 2>nul
-if errorlevel 1 (echo   - 未运行) else (echo   - 已停止)
+if errorlevel 1 (echo   - δ����) else (echo   - ��ֹͣ)
 
-echo [停止] 123盘服务...
+echo [ֹͣ] 123�̷���...
 taskkill /F /IM pan123_service.exe /T 2>nul
 taskkill /F /IM pan123_login.exe /T 2>nul
-if errorlevel 1 (echo   - 未运行) else (echo   - 已停止)
+if errorlevel 1 (echo   - δ����) else (echo   - ��ֹͣ)
 
-:: 3. 停止 Java 后端
-echo [停止] 后端服务...
+:: 3. ֹͣ Java ���
+echo [ֹͣ] ��˷���...
 taskkill /F /IM java.exe /T 2>nul
-if errorlevel 1 (echo   - 未运行) else (echo   - 已停止)
+if errorlevel 1 (echo   - δ����) else (echo   - ��ֹͣ)
 
 echo.
 echo ========================================
-echo 所有服务已尝试停止，请检查任务管理器
+echo ���з����ѳ���ֹͣ���������������
 echo ========================================
 pause

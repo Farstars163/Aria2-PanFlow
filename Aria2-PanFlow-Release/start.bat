@@ -62,6 +62,10 @@ if exist "app\Aria2-PanFlow.jar" (
     echo [OK] Java 后端服务后台启动中...
 )
 
+:: 自动打开前端页面
+echo [OK] 正在自动打开前端控制面板...
+start http://localhost:8080/index.html
+
 :: 删除临时 VBS
 del "%VBS_FILE%"
 
