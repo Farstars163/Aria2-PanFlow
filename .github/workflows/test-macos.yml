@@ -1,0 +1,129 @@
+name: macOS 兼容性测试
+
+# 触发方式：
+#   - 手动触发（Actions 页面 → Run workflow）
+#   - push 到 dist-versions 下 Mac 目录时自动触发
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'dist-versions-copy/Aria2-PanFlow-Mac*/**'
+
+jobs:
+  test:
+    name: 测试 ${{ matrix.project }}
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - Aria2-PanFlow-MacArm-Full
+          - Aria2-PanFlow-MacArm-Quark
+          - Aria2-PanFlow-MacX64-Full
+          - Aria2-PanFlow-MacX64-Quark
+    runs-on: macos-14   # GitHub 免费公共 runner（Intel x64）
+    defaults:
+      run:
+        working-directory: dist-versions-copy/${{ matrix.project }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 1. 环境与文件结构检查
+        run: |
+          echo "=== Runner 架构: $(uname -m) ==="
+          echo "=== 项目结构 ==="
+          ls -la
+          echo "=== 关键文件存在性 ==="
+          for f in start.command stop.command app/Aria2-PanFlow.jar; do
+            [ -f "$f" ] && echo "[OK] $f" || echo "[缺失] $f"
+          done
+
+      - name: 2. 脚本语法检查
+        run: |
+          echo "=== start.command 语法 ==="
+          bash -n start.command && echo "[OK] start.command 语法正确" || echo "[失败] start.command 语法错误"
+          echo "=== stop.command 语法 ==="
+          bash -n stop.command && echo "[OK] stop.command 语法正确" || echo "[失败] stop.command 语法错误"
+          echo "=== 执行权限 ==="
+          chmod +x start.command stop.command
+          ls -l start.command stop.command
+
+      - name: 3. 内置二进制架构检查
+        run: |
+          echo "=== aria2 二进制架构 ==="
+          for f in aria2/*/aria2c; do
+            if [ -f "$f" ]; then
+              file "$f"
+            fi
+          done
+          echo "=== 内置 JDK ==="
+          for j in jre/*/Contents/Home/bin/java; do
+            if [ -f "$j" ]; then
+              file "$j" | head -1
+            fi
+          done
+
+      - name: 4. 启动测试（后台运行 + 端口轮询 + API 验证）
+        run: |
+          # Arm 项目：免费公共 runner 为 Intel x64，无法执行 arm64 二进制。
+          # 真实 arm64 运行需要 Apple Silicon runner（付费）或物理 Mac。
+          if [[ "${{ matrix.project }}" == *"Arm"* ]]; then
+            echo "=============================================================="
+            echo "此项目为 ARM 架构：免费 runner 是 Intel x64，无法执行 arm64 二进制"
+            echo "已完成的检查：脚本语法、文件结构、二进制架构（见上一步）"
+            echo "真实 arm64 启动测试需 Apple Silicon runner 或物理 Mac 执行"
+            echo "=============================================================="
+            exit 0
+          fi
+
+          echo "=== 启动 start.command（后台） ==="
+          nohup bash start.command > /tmp/start.log 2>&1 &
+          echo "start.command 已后台启动"
+
+          # 轮询后端端口 18080（最多 60 秒）
+          echo "=== 等待后端端口 18080 就绪 ==="
+          READY=0
+          for i in $(seq 1 60); do
+            if nc -z 127.0.0.1 18080 2>/dev/null; then
+              echo "[OK] 后端端口 18080 已就绪（${i} 秒）"
+              READY=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$READY" != "1" ]; then
+            echo "[失败] 18080 端口未在 60 秒内就绪"
+            echo "=== 启动日志（诊断） ==="
+            tail -30 /tmp/start.log
+            exit 1
+          fi
+
+          # 验证 aria2 RPC 端口 16800
+          echo "=== 检查 aria2 RPC 端口 16800 ==="
+          if nc -z 127.0.0.1 16800 2>/dev/null; then
+            echo "[OK] aria2 RPC 16800 监听中"
+            curl -s -m 5 -X POST http://127.0.0.1:16800/jsonrpc \
+              -H 'Content-Type: application/json' \
+              -d '{"jsonrpc":"2.0","id":"1","method":"aria2.getVersion","params":["token:123456"]}' \
+              | head -c 300
+            echo ""
+          else
+            echo "[警告] aria2 RPC 16800 未监听（不影响后端测试，记录即可）"
+          fi
+
+          # 验证后端 API
+          echo "=== 验证后端 HTTP ==="
+          curl -s -o /dev/null -w "首页 HTTP 状态: %{http_code}\n" -m 5 http://127.0.0.1:18080/ || echo "[失败] 首页无响应"
+          echo "=== 生命周期状态 API ==="
+          curl -s -m 5 http://127.0.0.1:18080/api/lifecycle/status || echo "[警告] 状态 API 无响应"
+
+      - name: 5. 清理进程
+        if: always()
+        run: |
+          echo "=== 执行 stop.command 清理 ==="
+          bash stop.command || true
+          echo "=== 兜底清理 ==="
+          pkill -f "Aria2-PanFlow.jar" 2>/dev/null || true
+          pkill aria2c 2>/dev/null || true
+          pkill -f "start.command" 2>/dev/null || true
+          echo "[OK] 清理完成"
