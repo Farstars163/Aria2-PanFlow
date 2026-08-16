@@ -80,7 +80,8 @@ jobs:
           echo "已替换: $INNER_ARIA2 ($(file "$INNER_ARIA2" | cut -d: -f2))"
           echo "=== 设置 conf max-connection-per-server=64 ==="
           CONF=$(ls aria2/*/aria2.conf | head -1)
-          sed -i 's/max-connection-per-server.*/max-connection-per-server = 64/' "$CONF"
+          # macOS BSD sed 需 -i ''（区别于 GNU sed 的 -i）
+          sed -i '' 's/max-connection-per-server.*/max-connection-per-server = 64/' "$CONF"
           grep -n "max-connection-per-server" "$CONF"
           echo "=== 完整 start.command 测试（清代理） ==="
           env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy -u DYLD_INSERT_LIBRARIES nohup bash start.command > /tmp/start.log 2>&1 &
