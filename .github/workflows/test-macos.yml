@@ -41,6 +41,8 @@ jobs:
       - name: 1. 环境与文件结构检查
         run: |
           echo "=== Runner 架构: $(uname -m) ==="
+          echo "=== macOS 版本 ==="
+          sw_vers
           echo "=== 项目结构 ==="
           ls -la
           echo "=== 关键文件存在性 ==="
@@ -55,34 +57,38 @@ jobs:
           echo "=== stop.command 语法 ==="
           bash -n stop.command && echo "[OK] stop.command 语法正确" || echo "[失败] stop.command 语法错误"
           echo "=== 执行权限 ==="
-          chmod +x start.command stop.command
+          chmod +x start.command stop.command aria2/*/aria2c
           ls -l start.command stop.command
 
-      - name: 3. 内置二进制架构检查
+      - name: 3. 二进制冒烟测试（保留完整输出，定位崩溃原因）
         run: |
-          echo "=== aria2 二进制架构 ==="
-          for f in aria2/*/aria2c; do
-            if [ -f "$f" ]; then
-              file "$f"
-            fi
-          done
-          echo "=== 内置 JDK ==="
-          for j in jre/*/Contents/Home/bin/java; do
-            if [ -f "$j" ]; then
-              file "$j" | head -1
-            fi
-          done
+          echo "=== 内置 aria2c 直接运行测试 ==="
+          ARIA2_BIN=$(ls aria2/*/aria2c 2>/dev/null | head -1)
+          echo "aria2c 路径: $ARIA2_BIN"
+          file "$ARIA2_BIN"
+          echo "--- 运行 aria2c --version（无代理干扰） ---"
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy "$ARIA2_BIN" --version 2>&1 | head -6
+          echo "aria2c --version 退出码: $?"
+          echo ""
+          echo "=== 内置 JDK 直接运行测试 ==="
+          JAVA_BIN=$(ls jre/*/Contents/Home/bin/java 2>/dev/null | head -1)
+          echo "java 路径: $JAVA_BIN"
+          file "$JAVA_BIN"
+          echo "--- 运行 java -version ---"
+          "$JAVA_BIN" -version 2>&1 | head -4
+          echo "java -version 退出码: $?"
 
-      - name: 4. 启动测试（后台运行 + 端口轮询 + API 验证）
+      - name: 4. 完整启动测试（后台运行 + 端口轮询 + API 验证）
         run: |
-          # 架构匹配校验：runner 架构必须与项目架构一致
           RUNNER_ARCH=$(uname -m)
           echo "=== Runner 实际架构: $RUNNER_ARCH ==="
           echo "=== 项目预期架构: ${{ matrix.arch }} ==="
 
-          echo "=== 启动 start.command（后台） ==="
+          echo "=== 启动 start.command（后台，日志保留到 /tmp/start.log） ==="
           nohup bash start.command > /tmp/start.log 2>&1 &
-          echo "start.command 已后台启动"
+          sleep 8
+          echo "=== 8 秒后启动日志 ==="
+          cat /tmp/start.log
 
           # 轮询后端端口 18080（最多 90 秒）
           echo "=== 等待后端端口 18080 就绪 ==="
@@ -97,8 +103,12 @@ jobs:
           done
           if [ "$READY" != "1" ]; then
             echo "[失败] 18080 端口未在 90 秒内就绪"
-            echo "=== 启动日志（诊断） ==="
-            tail -40 /tmp/start.log
+            echo "=== 完整启动日志（诊断） ==="
+            cat /tmp/start.log
+            echo "=== 相关进程状态 ==="
+            ps aux | grep -E "aria2c|Aria2-PanFlow" | grep -v grep || echo "无 aria2c/后端进程"
+            echo "=== 监听端口 ==="
+            lsof -iTCP -sTCP:LISTEN -P 2>/dev/null | grep -E "18080|16800" || echo "18080/16800 均未监听"
             exit 1
           fi
 
