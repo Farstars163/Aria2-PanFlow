@@ -1,8 +1,5 @@
 name: macOS 兼容性测试
 
-# 触发方式：
-#   - 手动触发（Actions 页面 → Run workflow）
-#   - push 到 dist-versions-copy 下 Mac 目录时自动触发
 on:
   workflow_dispatch:
   push:
@@ -16,14 +13,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Arm 项目 → macOS arm64 runner（M1，标准 runner）
           - project: Aria2-PanFlow-MacArm-Full
             runs_on: macos-14
             arch: arm64
           - project: Aria2-PanFlow-MacArm-Quark
             runs_on: macos-14
             arch: arm64
-          # X64 项目 → macOS Intel x64 runner
           - project: Aria2-PanFlow-MacX64-Full
             runs_on: macos-15-intel
             arch: x64
@@ -53,30 +48,33 @@ jobs:
       - name: 2. 脚本语法检查
         run: |
           echo "=== start.command 语法 ==="
-          bash -n start.command && echo "[OK] start.command 语法正确" || echo "[失败] start.command 语法错误"
+          bash -n start.command && echo "[OK]" || echo "[失败]"
           echo "=== stop.command 语法 ==="
-          bash -n stop.command && echo "[OK] stop.command 语法正确" || echo "[失败] stop.command 语法错误"
+          bash -n stop.command && echo "[OK]" || echo "[失败]"
           echo "=== 执行权限 ==="
-          chmod +x start.command stop.command aria2/*/aria2c
-          ls -l start.command stop.command
+          chmod +x start.command stop.command aria2/*/aria2c jre/*/Contents/Home/bin/java
+          ls -l start.command aria2/*/aria2c
 
-      - name: 3. 二进制冒烟测试（保留完整输出，定位崩溃原因）
+      - name: 3. 二进制冒烟测试（前台直接运行，捕获全部输出）
         run: |
-          echo "=== 内置 aria2c 直接运行测试 ==="
           ARIA2_BIN=$(ls aria2/*/aria2c 2>/dev/null | head -1)
-          echo "aria2c 路径: $ARIA2_BIN"
-          file "$ARIA2_BIN"
-          echo "--- 运行 aria2c --version（无代理干扰） ---"
-          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy "$ARIA2_BIN" --version 2>&1 | head -6
-          echo "aria2c --version 退出码: $?"
-          echo ""
-          echo "=== 内置 JDK 直接运行测试 ==="
           JAVA_BIN=$(ls jre/*/Contents/Home/bin/java 2>/dev/null | head -1)
-          echo "java 路径: $JAVA_BIN"
-          file "$JAVA_BIN"
-          echo "--- 运行 java -version ---"
-          "$JAVA_BIN" -version 2>&1 | head -4
-          echo "java -version 退出码: $?"
+          echo "aria2c: $ARIA2_BIN"
+          echo "java: $JAVA_BIN"
+          echo ""
+          echo "=== aria2c 动态库依赖 (otool -L) ==="
+          otool -L "$ARIA2_BIN" 2>&1 | head -20
+          echo ""
+          echo "=== aria2c 代码签名 ==="
+          codesign -dv "$ARIA2_BIN" 2>&1 | head -5 || echo "无签名"
+          echo ""
+          echo "=== 前台运行 aria2c --version（捕获 stderr） ==="
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy -u DYLD_INSERT_LIBRARIES "$ARIA2_BIN" --version 2>&1 | head -10
+          echo "aria2c --version 退出码: ${PIPESTATUS[0]}"
+          echo ""
+          echo "=== 前台运行 java -version ==="
+          env -u DYLD_INSERT_LIBRARIES "$JAVA_BIN" -version 2>&1 | head -5
+          echo "java -version 退出码: ${PIPESTATUS[0]}"
 
       - name: 4. 完整启动测试（后台运行 + 端口轮询 + API 验证）
         run: |
@@ -84,8 +82,8 @@ jobs:
           echo "=== Runner 实际架构: $RUNNER_ARCH ==="
           echo "=== 项目预期架构: ${{ matrix.arch }} ==="
 
-          echo "=== 启动 start.command（后台，清除 GitHub Actions 代理变量防 aria2c 崩溃） ==="
-          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy nohup bash start.command > /tmp/start.log 2>&1 &
+          echo "=== 启动 start.command（后台，清除代理变量） ==="
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy -u DYLD_INSERT_LIBRARIES nohup bash start.command > /tmp/start.log 2>&1 &
           sleep 8
           echo "=== 8 秒后启动日志 ==="
           cat /tmp/start.log
@@ -109,6 +107,9 @@ jobs:
             ps aux | grep -E "aria2c|Aria2-PanFlow" | grep -v grep || echo "无 aria2c/后端进程"
             echo "=== 监听端口 ==="
             lsof -iTCP -sTCP:LISTEN -P 2>/dev/null | grep -E "18080|16800" || echo "18080/16800 均未监听"
+            echo "=== 手动前台运行后端 15 秒捕获启动错误 ==="
+            JAVA_BIN=$(ls jre/*/Contents/Home/bin/java 2>/dev/null | head -1)
+            timeout 15 env -u DYLD_INSERT_LIBRARIES "$JAVA_BIN" -jar app/Aria2-PanFlow.jar --server.port=18081 2>&1 | head -30 || echo "后端手动启动异常"
             exit 1
           fi
 
