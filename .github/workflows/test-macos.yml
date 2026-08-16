@@ -84,8 +84,8 @@ jobs:
           echo "=== Runner 实际架构: $RUNNER_ARCH ==="
           echo "=== 项目预期架构: ${{ matrix.arch }} ==="
 
-          echo "=== 启动 start.command（后台，日志保留到 /tmp/start.log） ==="
-          nohup bash start.command > /tmp/start.log 2>&1 &
+          echo "=== 启动 start.command（后台，清除 GitHub Actions 代理变量防 aria2c 崩溃） ==="
+          env -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u http_proxy -u https_proxy -u all_proxy nohup bash start.command > /tmp/start.log 2>&1 &
           sleep 8
           echo "=== 8 秒后启动日志 ==="
           cat /tmp/start.log
