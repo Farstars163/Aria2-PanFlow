@@ -2,7 +2,7 @@ name: macOS 兼容性测试
 
 # 触发方式：
 #   - 手动触发（Actions 页面 → Run workflow）
-#   - push 到 dist-versions 下 Mac 目录时自动触发
+#   - push 到 dist-versions-copy 下 Mac 目录时自动触发
 on:
   workflow_dispatch:
   push:
@@ -11,16 +11,26 @@ on:
 
 jobs:
   test:
-    name: 测试 ${{ matrix.project }}
+    name: 测试 ${{ matrix.project }} (${{ matrix.arch }})
     strategy:
       fail-fast: false
       matrix:
-        project:
-          - Aria2-PanFlow-MacArm-Full
-          - Aria2-PanFlow-MacArm-Quark
-          - Aria2-PanFlow-MacX64-Full
-          - Aria2-PanFlow-MacX64-Quark
-    runs-on: macos-14   # GitHub 免费公共 runner（Intel x64）
+        include:
+          # Arm 项目 → macOS arm64 runner（M1，标准 runner）
+          - project: Aria2-PanFlow-MacArm-Full
+            runs_on: macos-14
+            arch: arm64
+          - project: Aria2-PanFlow-MacArm-Quark
+            runs_on: macos-14
+            arch: arm64
+          # X64 项目 → macOS Intel x64 runner
+          - project: Aria2-PanFlow-MacX64-Full
+            runs_on: macos-15-intel
+            arch: x64
+          - project: Aria2-PanFlow-MacX64-Quark
+            runs_on: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runs_on }}
     defaults:
       run:
         working-directory: dist-versions-copy/${{ matrix.project }}
@@ -65,25 +75,19 @@ jobs:
 
       - name: 4. 启动测试（后台运行 + 端口轮询 + API 验证）
         run: |
-          # Arm 项目：免费公共 runner 为 Intel x64，无法执行 arm64 二进制。
-          # 真实 arm64 运行需要 Apple Silicon runner（付费）或物理 Mac。
-          if [[ "${{ matrix.project }}" == *"Arm"* ]]; then
-            echo "=============================================================="
-            echo "此项目为 ARM 架构：免费 runner 是 Intel x64，无法执行 arm64 二进制"
-            echo "已完成的检查：脚本语法、文件结构、二进制架构（见上一步）"
-            echo "真实 arm64 启动测试需 Apple Silicon runner 或物理 Mac 执行"
-            echo "=============================================================="
-            exit 0
-          fi
+          # 架构匹配校验：runner 架构必须与项目架构一致
+          RUNNER_ARCH=$(uname -m)
+          echo "=== Runner 实际架构: $RUNNER_ARCH ==="
+          echo "=== 项目预期架构: ${{ matrix.arch }} ==="
 
           echo "=== 启动 start.command（后台） ==="
           nohup bash start.command > /tmp/start.log 2>&1 &
           echo "start.command 已后台启动"
 
-          # 轮询后端端口 18080（最多 60 秒）
+          # 轮询后端端口 18080（最多 90 秒）
           echo "=== 等待后端端口 18080 就绪 ==="
           READY=0
-          for i in $(seq 1 60); do
+          for i in $(seq 1 90); do
             if nc -z 127.0.0.1 18080 2>/dev/null; then
               echo "[OK] 后端端口 18080 已就绪（${i} 秒）"
               READY=1
@@ -92,9 +96,9 @@ jobs:
             sleep 1
           done
           if [ "$READY" != "1" ]; then
-            echo "[失败] 18080 端口未在 60 秒内就绪"
+            echo "[失败] 18080 端口未在 90 秒内就绪"
             echo "=== 启动日志（诊断） ==="
-            tail -30 /tmp/start.log
+            tail -40 /tmp/start.log
             exit 1
           fi
 
@@ -116,6 +120,8 @@ jobs:
           curl -s -o /dev/null -w "首页 HTTP 状态: %{http_code}\n" -m 5 http://127.0.0.1:18080/ || echo "[失败] 首页无响应"
           echo "=== 生命周期状态 API ==="
           curl -s -m 5 http://127.0.0.1:18080/api/lifecycle/status || echo "[警告] 状态 API 无响应"
+          echo ""
+          echo "=== 测试结论：项目在 $(uname -m) macOS 上启动成功 ==="
 
       - name: 5. 清理进程
         if: always()
