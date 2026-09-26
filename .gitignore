@@ -32,3 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 aliyun_service.exe
+
+# 分发版不打进源码树, 走 GitHub Release
+/dist-versions/
+/Aria2-PanFlow-Standalone/
+/Aria2-PanFlow-Release/
