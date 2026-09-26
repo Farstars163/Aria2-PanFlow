@@ -1,10 +1,13 @@
+server:
+  port: 18080
+
 aria2:
-  rpc-url: http://localhost:6800/jsonrpc
+  rpc-url: http://localhost:16800/jsonrpc
   token: 123456
 
 baidu:
   pan:
-    user-agent: "pan.baidu.com"
+    user-agent: "netdisk;9.9.0;PC;PC-Windows;10.0.0;www.baidu.com"
     list-url: https://pan.baidu.com/rest/2.0/xpan/file?method=list&dir={dir}&access_token={token}
     meta-url: https://pan.baidu.com/rest/2.0/xpan/multimedia?method=filemetas&dlink=1&fsids={fsids}&access_token={token}
 
@@ -15,3 +18,48 @@ quark:
     list-url: https://drive.quark.cn/1/clouddrive/file/sort?pr=ucpro&fr=pc&_fetch_total=1&_page=1&_size=1000&pdir_fid={dir}
     Referer: https://drive.quark.cn/
     meta-url: https://drive-pc.quark.cn/1/clouddrive/file/download?entry=ft&fr=pc&pr=ucpro
+
+# 迅雷云盘 (令牌鉴权, 参考网盘直链下载助手)
+xunlei:
+  pan:
+    list-url: https://api-pan.xunlei.com/drive/v1/files
+    file-url: https://api-pan.xunlei.com/drive/v1/files/{id}
+    referer: https://pan.xunlei.com/
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36
+
+# UC网盘 (与夸克同构, Cookie 鉴权)
+uc:
+  pan:
+    UC_UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) uc-cloud-drive/2.5.20 Chrome/100.0.4896.160 Electron/18.3.5.4-b478491100 Safari/537.36 Channel/pckk_other_ch
+    WEB_UA: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+    list-url: https://pc-api.uc.cn/1/clouddrive/file/sort?pr=UCBrowser&fr=pc&pdir_fid={dir}&_page=1&_size=1000&_fetch_total=1&_fetch_sub_dirs=0&_sort=file_type:asc,updated_at:desc
+    Referer: https://drive.uc.cn/
+    meta-url: https://pc-api.uc.cn/1/clouddrive/file/download?entry=ft&fr=pc&pr=UCBrowser
+
+# 中国移动云盘 (和彩云, Authorization 鉴权 + Mcloud-Sign 签名, 参考网盘直链下载助手)
+mcloud:
+  pan:
+    list-url: https://personal-kd-njs.yun.139.com/hcy/file/list
+    get-link-url: https://personal-kd-njs.yun.139.com/hcy/file/getDownloadUrl
+    referer: https://yun.139.com/
+    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36
+
+# 网盘 Python 服务地址
+pan123:
+  base-url: http://127.0.0.1:15000/api
+
+aliyun:
+  base-url: http://127.0.0.1:15001/api/aliyun
+
+# 网盘 Python 服务进程管理 (默认不启动, 页面按需拉起)
+pan-service:
+  dir: ./python_service
+  aliyun-port: 15001
+  pan123-port: 15000
+  aliyun-exe: aliyun_service.exe
+  pan123-exe: pan123_service.exe
+  pan123-login-exe: pan123_login.exe
+
+logging:
+  level:
+    com.farstars: info

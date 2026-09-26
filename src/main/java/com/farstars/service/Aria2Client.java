@@ -13,9 +13,11 @@ public interface Aria2Client {
 
     ObjectNode sendRpc(String method, ArrayNode params) throws IOException;
 
-    String addUri(String url,String dir) throws IOException;
+    String addUri(String url, String dir) throws IOException;
 
     ObjectNode tellStatus(String gid) throws IOException;
+
+    ArrayNode getPeers(String gid) throws IOException;
 
     ArrayNode tellActive() throws IOException;
 
@@ -27,10 +29,17 @@ public interface Aria2Client {
 
     String remove(String gid) throws IOException;
 
+    String removeDownloadResult(String gid) throws IOException;
+
     ArrayNode tellStopped() throws IOException;
 
     ObjectNode getGlobalStat()  throws IOException;
 
+    ObjectNode getVersion() throws IOException;
+
     String addUri(String url, String dir, String filename, List<String> headers) throws IOException;
+
+    /** 添加种子任务(torrent 文件内容 base64) */
+    String addTorrent(String torrentBase64, String dir, String filename) throws IOException;
 
 }
