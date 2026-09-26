@@ -3,28 +3,27 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 echo ========================================
-echo   Aria2-PanFlow å¯åŠ¨è„šæœ¬
+echo   Aria2-PanFlow Æô¶¯½Å±¾
 echo ========================================
 
 set "PYTHON_DIR=%~dp0python_service"
 set "TOKEN_123=!PYTHON_DIR!\pan123_token.json"
 
-:: ç”¨æˆ·é€‰æ‹©å¯åŠ¨é¡¹
-set /p "RUN_ALI=æ˜¯å¦å¯åŠ¨é˜¿é‡Œäº‘ç›˜æœåŠ¡? (Y/N, é»˜è®¤N): "
-set /p "RUN_123=æ˜¯å¦å¯åŠ¨123ç›˜æœåŠ¡? (Y/N, é»˜è®¤N): "
+:: ÓÃ»§Ñ¡ÔñÆô¶¯Ïî
+set /p "RUN_ALI=ÊÇ·ñÆô¶¯°¢ÀïÔÆÅÌ·þÎñ? (Y/N, Ä¬ÈÏN): "
+set /p "RUN_123=ÊÇ·ñÆô¶¯123ÅÌ·þÎñ? (Y/N, Ä¬ÈÏN): "
 
-:: æ£€æŸ¥å¹¶å¯åŠ¨ 123 ç›˜ Token ç™»å½•
+:: ¼ì²é²¢Æô¶¯ 123 ÅÌ Token µÇÂ¼
 if /i "!RUN_123!"=="Y" (
     if not exist "!TOKEN_123!" (
-        echo [!] 123ç›˜ Token ç¼ºå¤±, æ­£åœ¨å¯åŠ¨ç™»å½•...
+        echo [!] 123ÅÌ Token È±Ê§, ÕýÔÚÆô¶¯µÇÂ¼...
         start /wait "" "!PYTHON_DIR!\pan123_login.exe"
     )
 )
 
 echo.
-echo æ­£åœ¨å¯åŠ¨å„é¡¹æœåŠ¡...
+echo ÕýÔÚÆô¶¯¸÷Ïî·þÎñ...
 
-:: åˆ›å»ºç”¨äºŽéšè—çª—å£çš„ VBS è„šæœ¬
 set "VBS_FILE=%temp%\hidden_run_v5.vbs"
 (
 echo Set objShell = WScript.CreateObject("WScript.Shell"^)
@@ -34,59 +33,80 @@ echo   objShell.Run WScript.Arguments(1^), 0, False
 echo End If
 ) > "%VBS_FILE%"
 
-:: 1. å¯åŠ¨é˜¿é‡Œäº‘ç›˜æœåŠ¡
+:: 1. Æô¶¯°¢ÀïÔÆÅÌ·þÎñ
 if /i "!RUN_ALI!"=="Y" (
     if exist "!PYTHON_DIR!\aliyun_service.exe" (
         cscript //nologo "%VBS_FILE%" "!PYTHON_DIR!" "aliyun_service.exe"
-        echo [OK] é˜¿é‡Œäº‘ç›˜æœåŠ¡åŽå°å¯åŠ¨ä¸­...
+        echo [OK] °¢ÀïÔÆÅÌ·þÎñºóÌ¨Æô¶¯ÖÐ...
+
+        echo [INFO] ÕýÔÚµÈ´ý°¢ÀïÔÆÅÌQRÂë¼ÓÔØ, ÇëÉÔºó...
+        call :WaitForQRCode
+        echo [OK] QRÂëÒÑµ¯³ö, ÇëÊ¹ÓÃ°¢ÀïÔÆÅÌappÉ¨ÃèQRÂë...
     )
 )
 
-:: 2. å¯åŠ¨ Aria2
+:: 2. Æô¶¯ Aria2 
 if exist "aria2\aria2c.exe" (
     cscript //nologo "%VBS_FILE%" "%~dp0aria2" "aria2c.exe --conf-path=aria2.conf"
-    echo [OK] Aria2 åŽå°å¯åŠ¨ä¸­...
+    echo [OK] Aria2 ºóÌ¨Æô¶¯ÖÐ...
 )
 
-:: 3. å¯åŠ¨ 123 ç›˜æœåŠ¡
+:: 3. Æô¶¯ 123 ÅÌ·þÎñ
 if /i "!RUN_123!"=="Y" (
     if exist "!TOKEN_123!" (
         cscript //nologo "%VBS_FILE%" "!PYTHON_DIR!" "pan123_service.exe"
-        echo [OK] 123ç›˜æœåŠ¡åŽå°å¯åŠ¨ä¸­...
+        echo [OK] 123ÅÌ·þÎñºóÌ¨Æô¶¯ÖÐ...
     )
 )
 
-:: 4. å¯åŠ¨ Java åŽç«¯ (åŽŸ Aria2-PanFlow.exe)
+:: 4. Æô¶¯ Java ºó¶Ë£¨Ê¹ÓÃ D:\jdk21£©
 if exist "app\Aria2-PanFlow.jar" (
-    cscript //nologo "%VBS_FILE%" "%~dp0" "java -jar app\Aria2-PanFlow.jar"
-    echo [OK] Java åŽç«¯æœåŠ¡åŽå°å¯åŠ¨ä¸­...
+    cscript //nologo "%VBS_FILE%" "%~dp0" ""D:\jdk21\bin\java.exe" -jar app\Aria2-PanFlow.jar"
+    echo [OK] Java ºó¶Ë·þÎñºóÌ¨Æô¶¯ÖÐ...
 )
 
-:: è‡ªåŠ¨æ‰“å¼€å‰ç«¯é¡µé¢
-echo [OK] æ­£åœ¨è‡ªåŠ¨æ‰“å¼€å‰ç«¯æŽ§åˆ¶é¢æ¿...
-start http://localhost:8080/index.html
+:: ×Ô¶¯´ò¿ªÇ°¶ËÒ³Ãæ£¨ºó¶Ë¼àÌý 18080£©
+echo [OK] ÕýÔÚ×Ô¶¯´ò¿ªÇ°¶Ë¿ØÖÆÃæ°å...
+start http://localhost:18080/index.html
 
-:: åˆ é™¤ä¸´æ—¶ VBS
+:: É¾³ýÁÙÊ± VBS
 del "%VBS_FILE%"
 
 echo.
 echo ========================================
-echo          å¯åŠ¨å®Œæˆ (ç­‰å¾…5ç§’åŒæ­¥çŠ¶æ€)
+echo          Æô¶¯Íê³É (µÈ´ý5ÃëÍ¬²½×´Ì¬)
 echo ========================================
 timeout /t 5 >nul
 
-:: çŠ¶æ€æ£€æŸ¥
 tasklist /FI "IMAGENAME eq aria2c.exe" 2>nul | find /I "aria2c.exe" >nul
-if %errorlevel% equ 0 (echo   [è¿è¡Œä¸­] Aria2) else (echo   [æœªè¿è¡Œ] Aria2)
+if %errorlevel% equ 0 (echo   [ÔËÐÐÖÐ] Aria2) else (echo   [Î´ÔËÐÐ] Aria2)
 
 if /i "!RUN_ALI!"=="Y" (
     tasklist /FI "IMAGENAME eq aliyun_service.exe" 2>nul | find /I "aliyun_service.exe" >nul
-    if %errorlevel% equ 0 (echo   [è¿è¡Œä¸­] é˜¿é‡Œäº‘ç›˜æœåŠ¡) else (echo   [æœªè¿è¡Œ/å·²åœæ­¢] é˜¿é‡Œäº‘ç›˜æœåŠ¡)
+    if %errorlevel% equ 0 (echo   [ÔËÐÐÖÐ] °¢ÀïÔÆÅÌ·þÎñ) else (echo   [Î´ÔËÐÐ/ÒÑÍ£Ö¹] °¢ÀïÔÆÅÌ·þÎñ)
 )
 
 tasklist /FI "IMAGENAME eq java.exe" 2>nul | find /I "java.exe" >nul
-if %errorlevel% equ 0 (echo   [è¿è¡Œä¸­] Java åŽç«¯) else (echo   [æœªè¿è¡Œ] Java åŽç«¯)
+if %errorlevel% equ 0 (echo   [ÔËÐÐÖÐ] Java ºó¶Ë) else (echo   [Î´ÔËÐÐ] Java ºó¶Ë)
 
 echo ========================================
+echo ½Å±¾ÒÑÖ´ÐÐÍê±Ï£¬5Ãëºó×Ô¶¯¹Ø±Õ¸Ã´°¿Ú...
+timeout /t 8 >nul
+exit /b
 
-pause
+
+:WaitForQRCode
+set /a "retry_count=0"
+
+:loop_start
+tasklist 2>nul | find /i "Photos.exe" >nul
+if errorlevel 1 (
+    set /a "retry_count+=1"
+    if !retry_count! gtr 10 (
+        echo [ERROR] µÈ´ý³¬Ê±£¬Î´¼ì²âµ½ÕÕÆ¬²é¿´Æ÷µ¯³ö£¬½«¼ÌÐøÆô¶¯ºóÐø·þÎñ...
+        goto :eof
+    )
+    timeout /t 1 >nul
+    goto loop_start
+)
+goto :eof
