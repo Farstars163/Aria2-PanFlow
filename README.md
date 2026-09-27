@@ -35,7 +35,6 @@
 ├── src/                     后端源码 (Spring Boot)
 ├── frontend/                前端源码 (Vue 3)
 ├── launcher/                Windows 启动器源码
-├── Aria2-PanFlow-Release/   Windows 运行目录
 └── docs/                    截图
 ```
 
